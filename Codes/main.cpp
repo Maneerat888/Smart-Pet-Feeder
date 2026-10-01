@@ -25,35 +25,34 @@ const int TRIG_PIN = 5;
 const int ECHO_PIN = 18;
 
 
+// ULTRASONIC #2 : PET DETECTION
 
-// ULTRASONIC #2 : CAT DETECTION
 
+const int PET_TRIG_PIN = 16;
+const int PET_ECHO_PIN = 17;
 
-const int CAT_TRIG_PIN = 16;
-const int CAT_ECHO_PIN = 17;
+// ระยะที่ถือว่าพบสัตว์เลี้ยง
+const float PET_DETECT_DISTANCE = 11.0;
 
-// ระยะที่ถือว่าพบแมว
-const float CAT_DETECT_DISTANCE = 11.0;
-
-// แมวต้องเดินออกเกิน 11 cm
+// สัตว์เลี้ยงต้องเดินออกเกิน 11 cm
 // จึงจะเริ่มนับรอบใหม่ได้
-const float CAT_LEAVE_DISTANCE = 11.0;
+const float PET_LEAVE_DISTANCE = 11.0;
 
 // ต้องอยู่ในระยะ 11 cm เป็นเวลา 3 วินาที
-const unsigned long CAT_EAT_TIME = 3000;
+const unsigned long PET_EAT_TIME = 3000;
 
-// จำนวนครั้งที่แมวกิน
+// จำนวนครั้งที่สัตว์เลี้ยงกิน
 // ค่านี้จะสะสมตลอดเวลาที่ ESP32 เปิดอยู่
-int catEatCount = 0;
+int petEatCount = 0;
 
-// เวลาเริ่มตรวจพบแมว
-unsigned long catStartTime = 0;
+// เวลาเริ่มตรวจพบสัตว์เลี้ยง
+unsigned long petStartTime = 0;
 
-// สถานะว่าตอนนี้มีแมวอยู่หรือไม่
-bool catDetected = false;
+// สถานะว่าตอนนี้มีสัตว์เลี้ยงอยู่หรือไม่
+bool petDetected = false;
 
 // สถานะว่ารอบนี้นับไปแล้วหรือยัง
-bool catCounted = false;
+bool petCounted = false;
 
 
 // =====================================================
@@ -67,7 +66,6 @@ Servo feederServo;
 // ตำแหน่ง Servo
 const int SERVO_CLOSE = 0;
 const int SERVO_OPEN  = 40;
-
 
 
 // OLED I2C
@@ -87,12 +85,9 @@ Adafruit_SSD1306 display(
 );
 
 
-
 // FUNCTION PROTOTYPE
 
-
 void showDisplay(String status, float distance);
-
 
 
 // FEEDING SETTINGS
@@ -112,10 +107,10 @@ int feedTime = MEDIUM_TIME;
 // จำนวนครั้งที่ให้อาหารวันนี้
 int feedCount = 0;
 
+
 // FOOD LEVEL SETTINGS
 
 // ระยะจาก Sensor ถึงอาหาร
-
 
 const float FOOD_FULL_DISTANCE  = 4.0;
 const float FOOD_LOW_DISTANCE   = 13.0;
@@ -185,31 +180,31 @@ float readDistance()
 }
 
 
-// FUNCTION: READ CAT ULTRASONIC
+// FUNCTION: READ PET ULTRASONIC
 
-float readCatDistance()
+float readPetDistance()
 {
     digitalWrite(
-        CAT_TRIG_PIN,
+        PET_TRIG_PIN,
         LOW
     );
 
     delayMicroseconds(2);
 
     digitalWrite(
-        CAT_TRIG_PIN,
+        PET_TRIG_PIN,
         HIGH
     );
 
     delayMicroseconds(10);
 
     digitalWrite(
-        CAT_TRIG_PIN,
+        PET_TRIG_PIN,
         LOW
     );
 
     long duration = pulseIn(
-        CAT_ECHO_PIN,
+        PET_ECHO_PIN,
         HIGH,
         30000
     );
@@ -227,71 +222,69 @@ float readCatDistance()
     return distance;
 }
 
-// FUNCTION: CHECK CAT
 
-void checkCat()
+// FUNCTION: CHECK PET
+
+void checkPet()
 {
-    // อ่านระยะจาก Sensor แมว
-    float catDistance =
-        readCatDistance();
+    // อ่านระยะจาก Sensor สัตว์เลี้ยง
+    float petDistance =
+        readPetDistance();
 
 
-    // CASE 1 : พบแมว
- 
+    // CASE 1 : พบสัตว์เลี้ยง
 
-    if (catDistance <= CAT_DETECT_DISTANCE)
+    if (petDistance <= PET_DETECT_DISTANCE)
     {
-        // เพิ่งพบแมว
-   
-        if (!catDetected)
+        // เพิ่งพบสัตว์เลี้ยง
+
+        if (!petDetected)
         {
-            catDetected = true;
+            petDetected = true;
 
             // ยังไม่นับ
-            catCounted = false;
+            petCounted = false;
 
             // เริ่มจับเวลา
-            catStartTime = millis();
+            petStartTime = millis();
 
             Serial.println();
             Serial.println("------------------------");
-            Serial.println("CAT DETECTED");
+            Serial.println("PET DETECTED");
             Serial.println("START COUNTING 3 SECONDS");
         }
 
 
-        // แมวยังอยู่ และยังไม่ถูกนับ
-      
+        // สัตว์เลี้ยงยังอยู่ และยังไม่ถูกนับ
 
-        if (!catCounted)
+        if (!petCounted)
         {
             unsigned long currentTime =
                 millis();
 
             // อยู่ครบ 3 วินาที
             if (
-                currentTime - catStartTime
-                >= CAT_EAT_TIME
+                currentTime - petStartTime
+                >= PET_EAT_TIME
             )
             {
-               
-                // เพิ่มจำนวนครั้งที่แมวกิน
-               
-                catEatCount++;
+                // เพิ่มจำนวนครั้งที่สัตว์เลี้ยงกิน
+
+                petEatCount++;
 
                 // ป้องกันการนับซ้ำ
-                catCounted = true;
+                petCounted = true;
 
                 Serial.println(
-                    "CAT EAT DETECTED!"
+                    "PET EAT DETECTED!"
                 );
 
                 Serial.print(
-                    "CAT EAT TODAY: "
+                    "PET EAT TODAY: "
                 );
 
                 Serial.println(
-                    catEatCount
+                    petEatCount
                 );
 
                 // อ่านระดับอาหาร
@@ -300,47 +293,44 @@ void checkCat()
 
                 // แสดงผลบน OLED
                 showDisplay(
-                    "CAT EAT!",
+                    "PET EAT!",
                     foodDistance
                 );
             }
         }
     }
 
-    // CASE 2 : แมวเดินออก
+    // CASE 2 : สัตว์เลี้ยงเดินออก
 
     else if (
-        catDistance > CAT_LEAVE_DISTANCE
+        petDistance > PET_LEAVE_DISTANCE
     )
     {
-        // ถ้าเคยพบแมว
-        if (catDetected)
+        // ถ้าเคยพบสัตว์เลี้ยง
+        if (petDetected)
         {
             Serial.println(
-                "CAT LEFT"
+                "PET LEFT"
             );
 
             Serial.println(
                 "READY FOR NEXT VISIT"
             );
 
-            catDetected = false;
+            petDetected = false;
 
-            catCounted = false;
+            petCounted = false;
 
-            catStartTime = 0;
+            petStartTime = 0;
         }
     }
 }
-
 
 
 // FUNCTION: CHECK FOOD EMPTY
 
 bool isFoodEmpty(float distance)
 {
-
-
     if (
         distance >= FOOD_EMPTY_DISTANCE
     )
@@ -354,10 +344,8 @@ bool isFoodEmpty(float distance)
 
 // FUNCTION: CHECK FOOD LOW
 
-
 bool isFoodLow(float distance)
 {
-
     if (
         distance >= FOOD_LOW_DISTANCE &&
         distance < FOOD_EMPTY_DISTANCE
@@ -369,14 +357,14 @@ bool isFoodLow(float distance)
     return false;
 }
 
+
 // FUNCTION: CALCULATE FOOD PERCENT
 
 int calculateFoodPercent(
     float distance
 )
 {
-    // 2 cm = 100%
-    // 13 cm = 0%
+
 
     int percent = map(
         (int)distance,
@@ -395,6 +383,8 @@ int calculateFoodPercent(
 
     return percent;
 }
+
+
 // FUNCTION: OLED DISPLAY
 
 void showDisplay(
@@ -417,8 +407,8 @@ void showDisplay(
     display.setTextColor(
         SSD1306_WHITE
     );
+
     // ชื่อระบบ
-  
 
     display.setCursor(0, 0);
 
@@ -455,7 +445,7 @@ void showDisplay(
     );
 
     // จำนวนครั้งที่เครื่องให้อาหาร
-  
+
     display.print(
         "TODAY  : "
     );
@@ -468,15 +458,14 @@ void showDisplay(
         " TIMES"
     );
 
-    // จำนวนครั้งที่แมวกิน
-   
+    // จำนวนครั้งที่สัตว์เลี้ยงกิน
 
     display.print(
-        "CAT EAT: "
+        "PET EAT: "
     );
 
     display.print(
-        catEatCount
+        petEatCount
     );
 
     display.println(
@@ -484,7 +473,6 @@ void showDisplay(
     );
 
     // สถานะ
-
 
     display.print(
         "STATUS : "
@@ -499,8 +487,8 @@ void showDisplay(
     display.display();
 }
 
-// FUNCTION: READY LED
 
+// FUNCTION: READY LED
 
 void setReadyLED()
 {
@@ -520,8 +508,8 @@ void setReadyLED()
     );
 }
 
-// FUNCTION: FEEDING LED
 
+// FUNCTION: FEEDING LED
 
 void setFeedingLED()
 {
@@ -540,6 +528,7 @@ void setFeedingLED()
         LOW
     );
 }
+
 
 // FUNCTION: EMPTY LED
 
@@ -571,7 +560,6 @@ void feedPet()
         readDistance();
 
     // อาหารหมด
- 
 
     if (
         isFoodEmpty(distance)
@@ -672,6 +660,7 @@ void feedPet()
         " times"
     );
 
+
     // ตรวจสอบอาหารหลังให้อาหาร
 
     distance =
@@ -679,6 +668,7 @@ void feedPet()
 
 
     // อาหารหมด
+
     if (
         isFoodEmpty(distance)
     )
@@ -697,6 +687,7 @@ void feedPet()
 
 
     // อาหารน้อย
+
     else if (
         isFoodLow(distance)
     )
@@ -715,6 +706,7 @@ void feedPet()
 
 
     // อาหารเพียงพอ
+
     else
     {
         setReadyLED();
@@ -729,6 +721,8 @@ void feedPet()
         "------------------------"
     );
 }
+
+
 // FUNCTION: BUTTON
 
 void checkButton()
@@ -771,7 +765,9 @@ void checkButton()
     }
 }
 
+
 // FUNCTION: AUTOMATIC FEEDING
+
 void automaticFeeding()
 {
     // เก็บเวลาการให้อาหารครั้งล่าสุด
@@ -781,10 +777,11 @@ void automaticFeeding()
         millis();
 
 
-    // ให้อาหารทุก 20 วินาที
+    // ให้อาหารทุก 10 วินาที
+
     if (
         currentTime - previousFeedTime
-        >= 20000
+        >= 10000
     )
     {
         previousFeedTime =
@@ -797,13 +794,14 @@ void automaticFeeding()
         );
 
         Serial.println(
-            "EVERY 20 SECONDS"
+            "EVERY 10 SECONDS"
         );
 
 
         feedPet();
     }
 }
+
 
 // SETUP
 
@@ -814,6 +812,7 @@ void setup()
     Serial.begin(
         115200
     );
+
 
     // LED
 
@@ -832,12 +831,15 @@ void setup()
         OUTPUT
     );
 
+
     // BUTTON
 
     pinMode(
         BUTTON_PIN,
         INPUT_PULLUP
     );
+
+
     // FOOD ULTRASONIC
 
     pinMode(
@@ -849,17 +851,20 @@ void setup()
         ECHO_PIN,
         INPUT
     );
-    // CAT ULTRASONIC
+
+
+    // PET ULTRASONIC
 
     pinMode(
-        CAT_TRIG_PIN,
+        PET_TRIG_PIN,
         OUTPUT
     );
 
     pinMode(
-        CAT_ECHO_PIN,
+        PET_ECHO_PIN,
         INPUT
     );
+
 
     // POTENTIOMETER
 
@@ -867,6 +872,8 @@ void setup()
         POT_PIN,
         INPUT
     );
+
+
     // OLED
 
     Wire.begin(
@@ -892,24 +899,31 @@ void setup()
         }
     }
 
+
     // SERVO
+
     feederServo.attach(
         SERVO_PIN
     );
 
 
     // Servo ปิด
+
     feederServo.write(
         SERVO_CLOSE
     );
 
+
     // INITIAL SETTINGS
+
     readAmount();
 
 
     // อ่านระดับอาหาร
+
     float distance =
         readDistance();
+
 
     // INITIAL FOOD STATUS
 
@@ -947,8 +961,8 @@ void setup()
         );
     }
 
-    // START MESSAGE
 
+    // START MESSAGE
 
     Serial.println(
         "========================"
@@ -963,27 +977,27 @@ void setup()
     );
 
     Serial.println(
-        "AUTO FEED : 20 SECONDS"
+        "AUTO FEED :10 SECONDS"
     );
 
     Serial.println(
-        "CAT DISTANCE : 11 CM"
+        "PET DISTANCE : 11 CM"
     );
 
     Serial.println(
-        "CAT TIME : 3 SECONDS"
+        "PET TIME : 3 SECONDS"
     );
 
     Serial.println(
-        "FOOD FULL : 2 CM"
+        "FOOD FULL : 4 CM"
     );
 
     Serial.println(
-        "FOOD LOW : 10 CM"
+        "FOOD LOW : 13 CM"
     );
 
     Serial.println(
-        "FOOD EMPTY : 13 CM"
+        "FOOD EMPTY : 15 CM"
     );
 
     Serial.println(
@@ -991,27 +1005,37 @@ void setup()
     );
 }
 
-// LOOP
 
+// LOOP
 
 void loop()
 {
     // อ่านปริมาณอาหารที่เลือก
 
     readAmount();
+
+
     // MANUAL FEED
+
     checkButton();
+
 
     // AUTOMATIC FEED
 
     automaticFeeding();
-    // CAT DETECTION
 
-    checkCat();
+
+    // PET DETECTION
+
+    checkPet();
+
+
     // READ FOOD LEVEL
 
     float distance =
         readDistance();
+
+
     // FOOD STATUS
 
     if (
